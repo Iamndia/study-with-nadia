@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kawaii Pomodoro Timer & Calendar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+         :root {
+            --soft-pink: #f783ac;
+            --dark-pink: #e66c98;
+            --light-pink: #fff0f5;
+            --white: #FFFFFF;
+            --dark-gray: #444444;
+            --gray: #aaaaaa;
+            --border-color: #fce8ef;
+        }
+        * { 
+            box-sizing: border-box;
+            transition: all 0.25s ease-in-out;
+        }
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: var(--light-pink);
+            background-image:
+                linear-gradient(to right, rgba(255, 232, 239, 0.5) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 232, 239, 0.5) 1px, transparent 1px);
+            background-size: 20px 20px;
+            color: var(--soft-pink);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 2rem 1rem; min-height: 100vh; overflow-x: hidden;
+            margin: 0;
+        }
+        .notification {
+            position: fixed; top: 20px; left: 50%;
+            transform: translate(-50%, -150%);
+            background-color: var(--soft-pink);
+            color: white; padding: 1rem 1.5rem; border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            font-weight: 700; z-index: 1000;
+            transition: transform 0.4s ease-in-out;
+        }
+        .notification.show { transform: translate(-50%, 0); }
+        .main-header { text-align: center; margin-bottom: 2rem; }
+        .main-header h1 { font-size: 2.5rem; color: var(--soft-pink); font-weight: 800; margin: 0; }
+        .main-header p { font-size: 1.1rem; margin: 0.25rem 0 0 0; color: var(--gray); }
+        .container { display: flex; flex-wrap: wrap; gap: 2rem; width: 100%; max-width: 950px; align-items: flex-start; }
+        
+        /* === PERBAIKAN: Hapus min-width agar pas di layar sangat kecil === */
+        .main-content { 
+            flex: 1.2; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 1.5rem; 
+        }
+        .sidebar { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 1.5rem; 
+        }
+
+        .card {
+            background-color: var(--white); padding: 1.5rem 2rem; border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(247, 131, 172, 0.05);
+            border: 2px solid var(--border-color);
+        }
+        .card:hover { transform: translateY(-5px); border-color: var(--soft-pink); box-shadow: 0 12px 30px rgba(247, 131, 172, 0.1); }
+        .card-header { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 1.5rem 0; font-size: 1.2rem; font-weight: 700; color: var(--soft-pink); }
+        .timer-card { padding: 2rem; text-align: center; }
+        .timer-main-display { display: flex; align-items: center; justify-content: space-around; gap: 1rem; }
+        @keyframes breathing { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        .character-container { flex-shrink: 0; animation: breathing 5s ease-in-out infinite; }
+        .character-svg { width: 80px; height: 80px; }
+        .time-display-container { width: 150px; height: 150px; border: 6px solid var(--soft-pink); border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+        .time-display { font-size: 2.5rem; font-weight: 800; color: var(--soft-pink); }
+        .mode-container { text-align: left; }
+        .mode-container p { margin: 0.25rem 0; font-size: 0.9rem; color: var(--gray); }
+        .mode-container #mode-display { color: var(--soft-pink); font-weight: 700; font-size: 1.1rem; }
+        .session-tracker { margin: 1rem 0; text-align: center; }
+        .session-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: var(--border-color); margin: 0 5px; }
+        .session-dot.completed { background-color: var(--soft-pink); }
+        .timer-controls { display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+        .timer-controls button, #save-settings-btn, #add-task-btn, #modal-close-btn {
+            background-color: var(--soft-pink); color: var(--white);
+            border: 2px solid var(--dark-pink); border-bottom-width: 4px;
+            padding: 0.8rem 1.2rem; border-radius: 12px;
+            font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 1rem; cursor: pointer;
+        }
+        .timer-controls button:hover, #save-settings-btn:hover, #add-task-btn:hover, #modal-close-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .timer-controls button:active, #save-settings-btn:active, #add-task-btn:active, #modal-close-btn:active { transform: translateY(1px); border-bottom-width: 2px; }
+        .settings-grid { display: flex; justify-content: space-between; gap: 1rem; text-align: center; }
+        .settings-grid > div { flex: 1; }
+        .settings-grid input { width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 8px; text-align: center; font-size: 1rem; margin-top: 0.5rem; }
+        .settings-grid input:focus, #todo-input:focus { border-color: var(--soft-pink); box-shadow: 0 0 0 3px rgba(247, 131, 172, 0.2); outline: none; }
+        #save-settings-btn { width: 100%; margin-top: 1.5rem; padding: 0.8rem; }
+        #todo-form { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+        #todo-input { flex-grow: 1; border: 2px solid var(--border-color); border-radius: 8px; padding: 0.7rem; }
+        #add-task-btn { padding: 0 1.2rem; }
+        .todo-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; font-size: 0.9rem; margin-top: 1rem; color: var(--gray); }
+        .filter-buttons { display: flex; gap: 1rem; }
+        .filter-buttons button { background: none; border: none; cursor: pointer; font-weight: 700; color: var(--gray); padding: 0; }
+        .filter-buttons button.active { color: var(--soft-pink); }
+        #clear-completed-btn { background: none; border: none; cursor: pointer; color: var(--gray); text-decoration: underline; padding: 0; }
+        #todo-list { list-style: none; padding: 0; margin-top: 1rem; }
+        .todo-item { display: flex; align-items: center; padding: 0.8rem 0.2rem; border-bottom: 1px solid var(--border-color); }
+        .todo-item:hover { background-color: #fff8fb; }
+        .todo-item.completed span { text-decoration: line-through; color: var(--gray); }
+        .todo-item input[type="checkbox"] { margin-right: 1rem; cursor: pointer; width: 18px; height: 18px; accent-color: var(--soft-pink); }
+        .todo-item span { flex-grow: 1; word-break: break-word; }
+        .delete-btn { background: none; border: none; color: var(--gray); font-size: 1.2rem; cursor: pointer; opacity: 0.5; }
+        .delete-btn:hover { color: var(--soft-pink); opacity: 1; }
+        .pomodoro-info-card ul { padding-left: 1.5rem; margin: 0; line-height: 1.6; }
+        .main-footer { margin-top: 2rem; text-align: center; font-size: 0.9rem; color: var(--gray); }
+        .sakura-flake { position: fixed; top: -20px; font-size: 1.5rem; color: var(--soft-pink); pointer-events: none; animation: fall linear infinite; z-index: -1; }
+        @keyframes fall { to { transform: translateY(105vh) rotate(360deg); opacity: 0; } }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center;
+            z-index: 2000; opacity: 0; pointer-events: none; backdrop-filter: blur(4px);
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-overlay.show { opacity: 1; pointer-events: auto; }
+        .modal-popup {
+            background: white; padding: 2rem; border-radius: 20px;
+            text-align: center; width: 90%; max-width: 400px;
+            border: 2px solid var(--border-color); 
+            transform: scale(0.7);
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .modal-overlay.show .modal-popup { transform: scale(1); }
+        .modal-popup h2 { margin: 0 0 1rem 0; font-size: 1.8rem; color: var(--soft-pink); }
+        .modal-popup p { margin: 0 0 1.5rem 0; font-size: 1.1rem; color: var(--dark-gray); }
+        #modal-close-btn { width: 100%; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        #month-year { font-weight: 700; font-size: 1.1rem; }
+        .calendar-nav-btn { background: none; border: none; cursor: pointer; font-size: 1.5rem; color: var(--soft-pink); padding: 0 0.5rem; border-radius: 8px; }
+        .calendar-nav-btn:hover { background-color: var(--light-pink); }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; text-align: center; }
+        .calendar-grid div { padding: 0.25rem; font-size: 0.9rem; display: flex; justify-content: center; align-items: center; }
+        .weekday { font-weight: 700; color: var(--gray); margin-bottom: 0.5rem; }
+        .date { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; }
+        .date:hover { background-color: var(--border-color); }
+        .prev-month-date, .next-month-date { color: var(--gray); opacity: 0.5; }
+        .today { background-color: var(--soft-pink); color: var(--white); font-weight: 700; }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1.5rem 1rem;
+            }
+            .container {
+                flex-direction: column;
+            }
+            .main-header h1 {
+                font-size: 2.2rem;
+            }
+            .card {
+                padding: 1.5rem;
+            }
+            .timer-main-display {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+            .mode-container {
+                text-align: center;
+            }
+            .settings-grid {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 1rem 0.5rem;
+            }
+            .main-header h1 {
+                font-size: 1.8rem;
+            }
+             .main-header p {
+                font-size: 1rem;
+            }
+            .time-display {
+                font-size: 2.5rem;
+            }
+            .time-display-container {
+                width: 140px;
+                height: 140px;
+            }
+            .timer-controls button, #add-task-btn {
+                flex-grow: 1;
+            }
+            #todo-form {
+                flex-direction: column;
+            }
+            .calendar-grid {
+                gap: 0.25rem;
+            }
+            .date {
+                width: 28px;
+                height: 28px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sakura-container"></div>
+    <div id="notification" class="notification"></div>
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal-popup">
+            <h2 id="modal-title">Judul Pop-up</h2>
+            <p id="modal-message">Pesan di sini...</p>
+            <button id="modal-close-btn">OK & Lanjut!</button>
+        </div>
+    </div>
+    
+    <header class="main-header"><h1>Kawaii Pomodoro Timer</h1><p>Study with your cute anime friend!</p></header>
+    
+    <div class="container">
+        <div class="main-content">
+            <section class="card timer-card">
+                <div class="timer-main-display">
+                    <div class="character-container"><svg viewBox="0 0 100 100" class="character-svg"><circle cx="50" cy="50" r="45" fill="#FFC0CB"/><path id="eye-left" d="M 35,48 a 4,4 0 1,1 8,0 a 4,4 0 1,1 -8,0" fill="#333"/><path id="eye-right" d="M 57,48 a 4,4 0 1,1 8,0 a 4,4 0 1,1 -8,0" fill="#333"/><path id="mouth" d="M 40 65 Q 50 75 60 65" stroke="#333" stroke-width="3" fill="none" stroke-linecap="round"/></svg></div>
+                    <div class="time-display-container"><h2 id="time-display" class="time-display">25:00</h2></div>
+                    <div class="mode-container"><p>Current Mode:</p><p id="mode-display">Focus Time</p><p id="completed-info">Completed: 0/4</p></div>
+                </div>
+                <div class="session-tracker"><div class="session-dot"></div><div class="session-dot"></div><div class="session-dot"></div><div class="session-dot"></div></div>
+                <div class="timer-controls"><button id="start-btn">Start</button><button id="pause-btn">Pause</button><button id="reset-btn">Reset</button><button id="skip-btn">Skip</button></div>
+            </section>
+            <section class="card">
+                <h2 class="card-header">⚙️ Timer Settings</h2>
+                <div class="settings-grid">
+                    <div><label for="focus-time">Focus Time</label><input type="number" id="focus-time" value="25" min="1"></div>
+                    <div><label for="short-break">Short Break</label><input type="number" id="short-break" value="5" min="1"></div>
+                    <div><label for="long-break">Long Break</label><input type="number" id="long-break" value="15" min="1"></div>
+                </div><button id="save-settings-btn">Save Settings</button>
+            </section>
+        </div>
+        <aside class="sidebar">
+              <section class="card calendar-card">
+                <h2 class="card-header">📅 My Calendar</h2>
+                <div class="calendar-header">
+                    <button id="prev-month-btn" class="calendar-nav-btn">&lt;</button>
+                    <span id="month-year"></span>
+                    <button id="next-month-btn" class="calendar-nav-btn">&gt;</button>
+                </div>
+                <div class="calendar-grid weekdays">
+                    <div class="weekday">Min</div>
+                    <div class="weekday">Sen</div>
+                    <div class="weekday">Sel</div>
+                    <div class="weekday">Rab</div>
+                    <div class="weekday">Kam</div>
+                    <div class="weekday">Jum</div>
+                    <div class="weekday">Sab</div>
+                </div>
+                <div id="calendar-dates" class="calendar-grid">
+                </div>
+            </section>
+            <section class="card">
+                <h2 class="card-header">📝 Study Todo List</h2>
+                <form id="todo-form"><input type="text" id="todo-input" placeholder="Add a task..." autocomplete="off"><button type="submit" id="add-task-btn">Add</button></form>
+                <ul id="todo-list"></ul>
+                <div class="todo-footer">
+                    <p id="items-left"></p>
+                    <div class="filter-buttons"><button id="filter-all" class="active">All</button><button id="filter-active">Active</button><button id="filter-completed">Completed</button></div>
+                    <button id="clear-completed-btn">Clear completed</button>
+                </div>
+            </section>
+           </aside>
+            <section class="card pomodoro-info-card">
+                <h2 class="card-header">💡 Pomodoro Technique</h2>
+                <ul><li>Focus intensely for 25 minutes</li><li>Take a <b>short break</b> for 5 minutes</li><li>After 4 pomodoros, take a <b>long break</b> of 15-30 minutes</li><li><b>Repeat</b> the cycle to maximize productivity!</li></ul>
+            </section>
+       
+    </div>
+    <footer class="main-footer"><p>Made with ❤️ for productive studying</p></footer>
+
+    <script>
+        // ... (Seluruh isi <script> tetap sama persis) ...
+        document.addEventListener('DOMContentLoaded', () => {
+            const mouth = document.getElementById('mouth'), eyeLeft = document.getElementById('eye-left'), eyeRight = document.getElementById('eye-right');
+            const timeDisplay = document.getElementById('time-display'), modeDisplay = document.getElementById('mode-display');
+            const startBtn = document.getElementById('start-btn'), pauseBtn = document.getElementById('pause-btn'), resetBtn = document.getElementById('reset-btn'), skipBtn = document.getElementById('skip-btn');
+            const sessionDots = document.querySelectorAll('.session-dot'), completedInfo = document.getElementById('completed-info');
+            const notification = document.getElementById('notification');
+            const saveSettingsBtn = document.getElementById('save-settings-btn');
+            const focusTimeInput = document.getElementById('focus-time'), shortBreakInput = document.getElementById('short-break'), longBreakInput = document.getElementById('long-break');
+            const todoForm = document.getElementById('todo-form'), todoInput = document.getElementById('todo-input'), todoList = document.getElementById('todo-list');
+            const itemsLeft = document.getElementById('items-left'), clearCompletedBtn = document.getElementById('clear-completed-btn'), filterBtns = document.querySelectorAll('.filter-buttons button');
+            const sakuraContainer = document.querySelector('.sakura-container');
+            const modalOverlay = document.getElementById('modal-overlay'), modalTitle = document.getElementById('modal-title'), modalMessage = document.getElementById('modal-message'), modalCloseBtn = document.getElementById('modal-close-btn');
+            const monthYearEl = document.getElementById('month-year');
+            const datesEl = document.getElementById('calendar-dates');
+            const prevMonthBtn = document.getElementById('prev-month-btn');
+            const nextMonthBtn = document.getElementById('next-month-btn');
+
+            const alarmSound = new Audio('alarm.mp3'); 
+            alarmSound.loop = true;
+
+            let timer; 
+            let totalSeconds;
+            let isPaused = true;
+            let mode = 'focus';
+            let sessionCount = 0;
+            let currentFilter = 'all';
+            let times = { focus: 25, shortBreak: 5, longBreak: 15 };
+            let tasks = [];
+            let calendarDate = new Date();
+
+            function createSakura() {
+                const sakuraFlake = document.createElement('div');
+                sakuraFlake.className = 'sakura-flake';
+                sakuraFlake.style.left = Math.random() * 100 + 'vw';
+                sakuraFlake.style.animationDuration = Math.random() * 3 + 5 + 's';
+                sakuraFlake.style.opacity = Math.random() * 0.5 + 0.5;
+                sakuraFlake.innerHTML = '🌸';
+                sakuraContainer.appendChild(sakuraFlake);
+                setTimeout(() => sakuraFlake.remove(), 8000);
+            }
+            function showNotification(message) {
+                notification.textContent = message;
+                notification.classList.add('show');
+                setTimeout(() => notification.classList.remove('show'), 2500);
+            }
+            function showModal(title, message) {
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                modalOverlay.classList.add('show');
+                alarmSound.play();
+            }
+            function hideModal() {
+                modalOverlay.classList.remove('show');
+                alarmSound.pause();
+                alarmSound.currentTime = 0;
+                startTimer();
+            }
+            function updateTimes() {
+                times = { focus: parseInt(focusTimeInput.value), shortBreak: parseInt(shortBreakInput.value), longBreak: parseInt(longBreakInput.value) };
+                if (isPaused) resetTimer();
+                showNotification("Settings saved! ✨");
+            }
+            function startTimer() {
+                if (isPaused) {
+                    isPaused = false;
+                    startBtn.textContent = 'Start';
+                    if (totalSeconds === undefined || totalSeconds <= 0) totalSeconds = times[mode] * 60;
+                    displayTime();
+                    timer = setInterval(updateTimer, 1000);
+                    updateCharacterAndMode();
+                }
+            }
+            function pauseTimer() {
+                if (!isPaused) {
+                    isPaused = true;
+                    clearInterval(timer);
+                    startBtn.textContent = 'Resume';
+                }
+            }
+            function resetTimer() {
+                clearInterval(timer);
+                isPaused = true;
+                sessionCount = 0;
+                mode = 'focus';
+                totalSeconds = times[mode] * 60;
+                displayTime();
+                updateSessionDisplay();
+                updateCharacterAndMode();
+                startBtn.textContent = 'Start';
+            }
+            function updateTimer() {
+                if (totalSeconds > 0) {
+                    totalSeconds--;
+                    displayTime();
+                } else {
+                    triggerEndOfSession();
+                }
+            }
+            function triggerEndOfSession() {
+                clearInterval(timer);
+                isPaused = true;
+                const lastMode = mode;
+                if (lastMode === 'focus') sessionCount++;
+                updateSessionDisplay();
+                mode = (lastMode === 'focus') ? (sessionCount % 4 === 0 ? 'longBreak' : 'shortBreak') : 'focus';
+                totalSeconds = times[mode] * 60; 
+                displayTime(); 
+                updateCharacterAndMode(); 
+                if (lastMode === 'focus') {
+                    showModal('Focus Complete! 🥳', `Great job! Time for a ${mode === 'longBreak' ? 'long' : 'short'} break.`);
+                } else {
+                    showModal('Break is Over! 💪', 'Time to get back to focus!');
+                }
+            }
+            function skipTimer() { 
+                pauseTimer();
+                const lastMode = mode;
+                if (lastMode === 'focus') sessionCount++;
+                updateSessionDisplay();
+                mode = (lastMode === 'focus') ? (sessionCount % 4 === 0 ? 'longBreak' : 'shortBreak') : 'focus';
+                totalSeconds = times[mode] * 60;
+                displayTime();
+                updateCharacterAndMode();
+                startBtn.textContent = 'Start';
+            }
+            function displayTime() {
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                const timeString = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                timeDisplay.textContent = timeString;
+                document.title = `${timeString} - ${modeDisplay.textContent}`;
+            }
+            function updateCharacterAndMode() {
+                modeDisplay.textContent = { focus: 'Focus Time', shortBreak: 'Short Break', longBreak: 'Long Break' }[mode];
+                const eyeDefault = "M 35,48 a 4,4 0 1,1 8,0 a 4,4 0 1,1 -8,0";
+                const eyeHappy = "M 35 48 C 37 42, 43 42, 45 48";
+                switch(mode){
+                    case 'focus': mouth.setAttribute('d', 'M 40 68 L 60 68'); eyeLeft.setAttribute('d', eyeDefault); eyeRight.setAttribute('d', eyeDefault.replace(/35/g, '57')); break;
+                    case 'shortBreak': mouth.setAttribute('d', 'M 40 65 Q 50 75 60 65'); eyeLeft.setAttribute('d', eyeDefault); eyeRight.setAttribute('d', eyeDefault.replace(/35/g, '57')); break;
+                    case 'longBreak': mouth.setAttribute('d', 'M 40 62 A 10 10 0 0 1 60 62'); eyeLeft.setAttribute('d', eyeHappy); eyeRight.setAttribute('d', eyeHappy.replace(/35/g, '57').replace(/37/g, '59').replace(/43/g, '65').replace(/45/g, '67')); break;
+                }
+            }
+            function updateSessionDisplay() {
+                const totalSessions = 4;
+                const currentSessionInCycle = sessionCount % totalSessions || (sessionCount > 0 && sessionCount % totalSessions === 0 ? totalSessions : 0);
+                completedInfo.textContent = `Completed: ${currentSessionInCycle}/${totalSessions}`;
+                sessionDots.forEach((dot, i) => dot.classList.toggle('completed', i < currentSessionInCycle));
+            }
+            function saveTasksToLocalStorage() { localStorage.setItem('tasks', JSON.stringify(tasks)); }
+            function renderAllTasks() {
+                todoList.innerHTML = '';
+                const tasksToDisplay = tasks.filter(task => (currentFilter === 'active' && !task.completed) || (currentFilter === 'completed' && task.completed) || currentFilter === 'all');
+                tasksToDisplay.forEach(task => {
+                    const li = document.createElement('li');
+                    li.className = `todo-item ${task.completed ? 'completed' : ''}`;
+                    li.dataset.id = task.id;
+                    li.innerHTML = `<input type="checkbox" ${task.completed ? 'checked' : ''}><span></span><button class="delete-btn">×</button>`;
+                    li.querySelector('span').textContent = task.text;
+                    todoList.appendChild(li);
+                });
+                const activeTasks = tasks.filter(t => !t.completed).length;
+                itemsLeft.textContent = `${activeTasks} item${activeTasks !== 1 ? 's' : ''} left`;
+                clearCompletedBtn.style.display = tasks.some(t => t.completed) ? 'inline' : 'none';
+            }
+            function handleAddTask(e) {
+                e.preventDefault();
+                const text = todoInput.value.trim();
+                if (text) {
+                    tasks.push({ id: Date.now(), text, completed: false });
+                    saveTasksToLocalStorage();
+                    renderAllTasks();
+                    todoInput.value = '';
+                    showNotification("Task added successfully! 📝");
+                }
+            }
+            function handleTodoListInteraction(e) {
+                const li = e.target.closest('li.todo-item');
+                if (!li) return;
+                const taskId = Number(li.dataset.id);
+                const task = tasks.find(t => t.id === taskId);
+                if (e.target.matches('.delete-btn')) { tasks = tasks.filter(t => t.id !== taskId); } 
+                else if (task) { task.completed = !task.completed; }
+                saveTasksToLocalStorage(); renderAllTasks();
+            }
+            function clearCompletedTasks() {
+                tasks = tasks.filter(task => !task.completed);
+                saveTasksToLocalStorage(); renderAllTasks();
+            }
+            function changeFilter(e) {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilter = e.target.id.replace('filter-', '');
+                renderAllTasks();
+            }
+            function renderCalendar() {
+                const monthsInIndonesian = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+                const today = new Date();
+                calendarDate.setDate(1);
+                const firstDayIndex = calendarDate.getDay();
+                const lastDay = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 0).getDate();
+                const prevLastDay = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 0).getDate();
+                const lastDayIndex = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 0).getDay();
+                const nextDays = 7 - lastDayIndex - 1;
+                monthYearEl.innerHTML = `${monthsInIndonesian[calendarDate.getMonth()]} ${calendarDate.getFullYear()}`;
+                let datesHTML = "";
+                for (let x = firstDayIndex; x > 0; x--) {
+                    datesHTML += `<div class="date prev-month-date">${prevLastDay - x + 1}</div>`;
+                }
+                for (let i = 1; i <= lastDay; i++) {
+                    if (i === today.getDate() && calendarDate.getMonth() === today.getMonth() && calendarDate.getFullYear() === today.getFullYear()) {
+                        datesHTML += `<div class="date today">${i}</div>`;
+                    } else {
+                        datesHTML += `<div class="date">${i}</div>`;
+                    }
+                }
+                for (let j = 1; j <= nextDays; j++) {
+                    datesHTML += `<div class="date next-month-date">${j}</div>`;
+                }
+                datesEl.innerHTML = datesHTML;
+            }
+            function loadInitialData() {
+                const loadedTasks = localStorage.getItem('tasks');
+                if(loadedTasks) tasks = JSON.parse(loadedTasks);
+                resetTimer();
+                renderAllTasks();
+                renderCalendar();
+                setInterval(createSakura, 500);
+            }
+            saveSettingsBtn.addEventListener('click', updateTimes);
+            startBtn.addEventListener('click', startTimer);
+            pauseBtn.addEventListener('click', pauseTimer);
+            resetBtn.addEventListener('click', resetTimer);
+            skipBtn.addEventListener('click', skipTimer);
+            todoForm.addEventListener('submit', handleAddTask);
+            todoList.addEventListener('click', handleTodoListInteraction);
+            clearCompletedBtn.addEventListener('click', clearCompletedTasks);
+            filterBtns.forEach(btn => btn.addEventListener('click', changeFilter));
+            modalCloseBtn.addEventListener('click', hideModal);
+            modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) hideModal(); });
+            prevMonthBtn.addEventListener('click', () => {
+                calendarDate.setMonth(calendarDate.getMonth() - 1);
+                renderCalendar();
+            });
+            nextMonthBtn.addEventListener('click', () => {
+                calendarDate.setMonth(calendarDate.getMonth() + 1);
+                renderCalendar();
+            });
+            loadInitialData();
+        });
+    </script>
+</body>
+</html>
